@@ -97,11 +97,10 @@ public:
 				continue;
 			}
 			img_id_in_streams[stream_idx] = img_id;
-			uchar* d_img_in = dimg_in + stream_idx * IMG_WIDTH * IMG_HEIGHT;
-			uchar* d_img_out = dimg_out + stream_idx * IMG_WIDTH * IMG_HEIGHT;
-			CUDA_CHECK( cudaMemcpyAsync(d_img_in, img_in, IMG_WIDTH * IMG_HEIGHT, cudaMemcpyHostToDevice, streams[stream_idx]));
-			process_image_kernel<<<1, 1024, 0, streams[stream_idx]>>>(d_img_in, d_img_out);
-			CUDA_CHECK( cudaMemcpyAsync(img_out, d_img_out, IMG_WIDTH * IMG_HEIGHT, cudaMemcpyDeviceToHost, streams[stream_idx]));
+			int offset = stream_idx * IMG_WIDTH * IMG_HEIGHT;
+			CUDA_CHECK( cudaMemcpyAsync(dimg_in + offset, img_in, IMG_WIDTH * IMG_HEIGHT, cudaMemcpyHostToDevice, streams[stream_idx]));
+			process_image_kernel<<<1, 1024, 0, streams[stream_idx]>>>(dimg_in + offset, dimg_out + offset);
+			CUDA_CHECK( cudaMemcpyAsync(img_out, dimg_out + offset, IMG_WIDTH * IMG_HEIGHT, cudaMemcpyDeviceToHost, streams[stream_idx]));
 //			printf("img_id: %d was enqueued to stream idx: %d\n",img_id,stream_idx);
 			return true;
 		}
