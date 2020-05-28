@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cuda/atomic>
 #include "ex2.h"
 #define N_SLOTS 16
 #define N_STREAMS 64
@@ -147,31 +148,42 @@ typedef struct request{
     uchar* img_out;
 } request_context;
 
-typedef enum result {success , failure} result;
 
-template <uint8_t size> class ring_buffer {
+
+template <size_t size>
+class ring_buffer{
 private:
     static const size_t N = 1 << size;
-    request_context _mailbox[N] = {-1};
-    cuda::atomic<size_t> _head = 0, _tail = 0;
+    request_context _mailbox[N];
+    cuda::atomic<size_t> _head;
+    cuda::atomic<size_t> _tail;
+    request_context failure;
 public:
- result push(const request_context &data){
-    int tail = _tail.load(memory_order_relaxed);
-    if (tail - _head.load(memory_order_acquire) == N) return failure; // if queue is full
-    _mailbox[_tail % N] = data;
-    _tail.store(tail + 1, memory_order_release);
-    return success;
- }
- request_context pop(){
-    request_context item;
-    item.img_id = -1; 
-    int head = _head.load(memory_order_relaxed);
-    if (_tail.load(memory_order_acquire) == _head) return item; // if queue is empty
-    item = _mailbox[_head % N];
-    _head.store(head + 1, memory_order_release);
-    return item;
- }
+    ring_buffer(){
+        _head = 0;
+        _tail = 0;
+        failure.img_id = -1;
+        for(size_t i = 0 ; i < N ; i++){
+            _mailbox[i].img_id = -1;
+        }
+    }
+    __device__ __host__ bool push(request_context data){
+        size_t tail = _tail.load(cuda::memory_order_relaxed);
+        if(tail - _head.load(cuda::memory_order_acquire) == N) return false;
+        _mailbox[_tail % N] = data;
+        _tail.store(tail + 1 , cuda::memory_order_release);
+        return true;
+    }
+    __device__ __host__ request_context pop(){
+        request_context item;
+        size_t head = _head.load(cuda::memory_order_relaxed);
+        if(_tail.load(cuda::memory_order_acquire) == head) return failure;
+        item = _mailbox[_head % N];
+        _head.store(head + 1 , cuda::memory_order_release);
+        return item;
+    }
 };
+
 
 __device__ void process_image(uchar *in, uchar *out) {
     __shared__ int histogram[256];
@@ -201,10 +213,11 @@ __device__ void process_image(uchar *in, uchar *out) {
     for (int i = tid; i < IMG_WIDTH * IMG_HEIGHT; i += blockDim.x) {
         out[i] = map[in[i]];
     }
+    __syncthreads();
 }
 
 
-__global__ void producer_consumer_kernel(ring_buffer* cpu_to_gpu, ring_buffer* gpu_to_cpu) {
+__global__ void producer_consumer_kernel(ring_buffer<4>* cpu_to_gpu, ring_buffer<4>* gpu_to_cpu) {
     if(threadIdx.x == 0){
         request_context req;
             do{
@@ -213,45 +226,44 @@ __global__ void producer_consumer_kernel(ring_buffer* cpu_to_gpu, ring_buffer* g
                 if(req.img_id >= 0 ){
                     process_image(req.img_in, req.img_out);
                 }
-                else if(context[blockIdx.x].img_id == END_RUN) {
+                else if(req.img_id == END_RUN) {
                     return;
                 }
-                while(gpu_to_cpu[blockIdx.x].push(req) == failure);
-            }while(1)
+                while(gpu_to_cpu[blockIdx.x].push(req) == false);
+            }while(1);
     }   
 }
 
 class queue_server : public image_processing_server
 {
 private:
-    ring_buffer *cpu_to_gpu;
-    ring_buffer *gpu_to_cpu;
+    ring_buffer<4> *cpu_to_gpu;
+    ring_buffer<4> *gpu_to_cpu;
     int n_thread_blocks;
 public:
     queue_server(int threads)
     {
-        char* pinned_host_buffer
+        char* pinned_host_buffer;
         // TODO initialize host state
         // TODO launch GPU producer-consumer kernel with given number of threads
         n_thread_blocks = threads % 10; // TODO must be changed
         // Allocate pinned host buffer for two shared_memory instances
-        CUDA_CHECK(cudaMallocHost(&pinned_host_buffer, 2 * sizeof(ring_buffer)));
+        CUDA_CHECK(cudaMallocHost(&pinned_host_buffer, 2 * sizeof(ring_buffer<4>)));
         // Use placement new operator to construct our class on the pinned buffer
-        cpu_to_gpu = new (pinned_host_buffer) ring_buffer<request_context , 4>[n_thread_blocks];
-        gpu_to_cpu = new (pinned_host_buffer + sizeof(ring_buffer)) ring_buffer<request_context , 4>[n_thread_blocks];
-        for(int i = 0 ; i < n_thread_blocks ; i++){
-            cpu_to_gpu[i].img_id = -1;
-            gpu_to_cpu[i].img_id = -1;
-        }
-        <<<n_thread_blocks , threads>>>process_image_kernel<<<n_thread_blocks, threads>>>(cpu_to_gpu, gpu_to_cpu);
+        cpu_to_gpu = new (pinned_host_buffer) ring_buffer<4>[n_thread_blocks];
+        gpu_to_cpu = new (pinned_host_buffer + sizeof(ring_buffer<4>)) ring_buffer<4>[n_thread_blocks];
+        
+        producer_consumer_kernel<<<n_thread_blocks , threads>>>(cpu_to_gpu, gpu_to_cpu);
     }
 
     ~queue_server() override
     {
         request_context end_context;
         end_context.img_id = END_RUN;
-        std::cout << "\nKilling server" << message_from_gpu << std::endl;
-        while(cpu_to_gpu[0].push(end_context) == failure);
+        end_context.img_in = NULL;
+        end_context.img_out = NULL;
+        std::cout << "\nKilling server" << std::endl;
+        while(cpu_to_gpu[0].push(end_context) == false);
         CUDA_CHECK( cudaDeviceSynchronize() );
         delete [] cpu_to_gpu;
         delete [] gpu_to_cpu;
@@ -265,19 +277,23 @@ public:
         req.img_in = img_in;
         req.img_out = img_out;
         for(int i = 0 ; i < n_thread_blocks ; i++){
-            if(cpu_to_gpu[i].push(req) == success) return true;
+            if(cpu_to_gpu[i].push(req)){
+                return true;
+            } 
         }
-            return false;
+        return false;
     }
 
     bool dequeue(int *img_id) override
     {
         // TODO query (don't block) the producer-consumer queue for any responses.
         *img_id = 0; // TODO return the img_id of the request that was completed.
-        for(int i = 0 ; i < n_thread_blocks ; i++){
+        for(int i = 0 ; i < n_thread_blocks ; i++){         
             request_context req = gpu_to_cpu[i].pop();
             *img_id = req.img_id;
-            if(req.img_id != -1) return true; 
+            if(req.img_id >= 0) {
+                return true; 
+            }
         }
         return false;
         

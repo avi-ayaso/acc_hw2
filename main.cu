@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////// DO NOT CHANGE ///////////////////////////////////////
 
 #include "ex2.h"
-
+#include <iostream>
 #include <random>
 #include <algorithm>
 #include <cassert>
@@ -158,14 +158,15 @@ int main(int argc, char **argv) {
     int next_img_id = 0;
     int num_dequeued = 0;
     double available_tasks = 0;
-
+    int histo[N_IMAGES] = {0};
     while (next_img_id < N_IMAGES || num_dequeued < N_IMAGES) {
         int dequeued_img_id;
         if (server->dequeue(&dequeued_img_id)) {
             ++num_dequeued;
             req_t_end[dequeued_img_id] = get_time_msec();
+            histo[dequeued_img_id]++;
         }
-
+        
         /* If we are done with enqueuing, just loop until all are dequeued */
         if (next_img_id == N_IMAGES)
             continue;
@@ -178,14 +179,17 @@ int main(int argc, char **argv) {
 	    }
             available_tasks += num_to_send;
         }
-
         if (available_tasks > next_img_id) {
-            /* Enqueue a new image */
             if (server->enqueue(next_img_id, &images_in[next_img_id * IMG_WIDTH * IMG_HEIGHT],
                                              &images_out_gpu[next_img_id * IMG_WIDTH * IMG_HEIGHT])) {
                 ++next_img_id;
             }
         }
+    }
+    for(int i = 0 ; i < N_IMAGES ; i++){
+        if(histo[i] == 1) continue;
+        else if(histo[i] == 0) std::cout << "img_id: " << i << "was never dequeued" << std::endl;
+        else std::cout << "img_id: " << i << "was dequeued more than once" << std::endl;
     }
     t_finish = get_time_msec();
     distance_sqr = distance_sqr_between_image_arrays(images_out_cpu, images_out_gpu);
