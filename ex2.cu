@@ -1,7 +1,7 @@
 #include <iostream>
 #include <cuda/atomic>
 #include "ex2.h"
-#define N_SLOTS 16
+#define LOG_N_SLOTS 4
 #define N_STREAMS 64
 #define STREAM_AVAILABLE -1
 #define END_RUN -2
@@ -218,41 +218,51 @@ __device__ void process_image(uchar *in, uchar *out) {
 }
 
 
-__global__ void producer_consumer_kernel(ring_buffer<4>* cpu_to_gpu, ring_buffer<4>* gpu_to_cpu) {
-    if(threadIdx.x == 0){
-        request_context req;
-            do{
-                req = cpu_to_gpu[blockIdx.x].pop();
-                
-                if(req.img_id >= 0 ){
-                    process_image(req.img_in, req.img_out);
-                }
-                else if(req.img_id == END_RUN) {
-                    return;
-                }
-                while(gpu_to_cpu[blockIdx.x].push(req) == false);
-            }while(1);
-    }   
+__global__ void producer_consumer_kernel(ring_buffer<LOG_N_SLOTS>* cpu_to_gpu, ring_buffer<LOG_N_SLOTS>* gpu_to_cpu) {
+    request_context req;
+    __shared__ uchar* img_in;
+    __shared__ uchar* img_out;
+    __shared__ bool con;
+    do{
+        if(threadIdx.x == 0){
+            req = cpu_to_gpu[blockIdx.x].pop();
+            con = false;
+            img_in = req.img_in;
+            img_out = req.img_out;
+            if(req.img_id == -1) con = true;
+            else if(req.img_id == END_RUN) {
+                return;
+            }                
+        }
+        __syncthreads();
+        if(con) continue;   
+        process_image(img_in, img_out);
+        if(threadIdx.x == 0){
+            while(!gpu_to_cpu[blockIdx.x].push(req));
+        }
+        __syncthreads();
+    }while(1);
 }
 
 class queue_server : public image_processing_server
 {
 private:
-    ring_buffer<4> *cpu_to_gpu;
-    ring_buffer<4> *gpu_to_cpu;
+    ring_buffer<LOG_N_SLOTS> *cpu_to_gpu;
+    ring_buffer<LOG_N_SLOTS> *gpu_to_cpu;
+    char* pinned_host_buffer;
     int n_thread_blocks;
 public:
     queue_server(int threads)
     {
-        char* pinned_host_buffer;
+       
         // TODO initialize host state
         // TODO launch GPU producer-consumer kernel with given number of threads
-        n_thread_blocks = threads % 10; // TODO must be changed
+        n_thread_blocks = 2; // TODO must be changed
         // Allocate pinned host buffer for two shared_memory instances
-        CUDA_CHECK(cudaMallocHost(&pinned_host_buffer, 2 * sizeof(ring_buffer<4>)));
+        CUDA_CHECK(cudaMallocHost(&pinned_host_buffer, 2 * n_thread_blocks * sizeof(ring_buffer<LOG_N_SLOTS>)));
         // Use placement new operator to construct our class on the pinned buffer
-        cpu_to_gpu = new (pinned_host_buffer) ring_buffer<4>[n_thread_blocks];
-        gpu_to_cpu = new (pinned_host_buffer + sizeof(ring_buffer<4>)) ring_buffer<4>[n_thread_blocks];
+        cpu_to_gpu = new (pinned_host_buffer) ring_buffer<LOG_N_SLOTS>[n_thread_blocks];
+        gpu_to_cpu = new (pinned_host_buffer + n_thread_blocks * sizeof(ring_buffer<LOG_N_SLOTS>)) ring_buffer<LOG_N_SLOTS>[n_thread_blocks];
         
         producer_consumer_kernel<<<n_thread_blocks , threads>>>(cpu_to_gpu, gpu_to_cpu);
     }
@@ -263,11 +273,7 @@ public:
         end_context.img_id = END_RUN;
         end_context.img_in = NULL;
         end_context.img_out = NULL;
-        std::cout << "\nKilling server" << std::endl;
         while(cpu_to_gpu[0].push(end_context) == false);
-        CUDA_CHECK( cudaDeviceSynchronize() );
-        delete [] cpu_to_gpu;
-        delete [] gpu_to_cpu;
     }
 
     bool enqueue(int img_id, uchar *img_in, uchar *img_out) override
