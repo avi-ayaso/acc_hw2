@@ -3,8 +3,11 @@
 #include "ex2.h"
 #define LOG_N_SLOTS 4
 #define N_STREAMS 64
+#define N_REGS 32
 #define STREAM_AVAILABLE -1
 #define END_RUN -2
+#define SHMEM_PER_BLOCK 2577
+#define REGS_PER_BLOCK 28
 
 __device__ void prefix_sum(int arr[], int arr_size) {
     int tid = threadIdx.x;
@@ -244,6 +247,21 @@ __global__ void producer_consumer_kernel(ring_buffer<LOG_N_SLOTS>* cpu_to_gpu, r
     }while(1);
 }
 
+
+
+int getNumOfBlocks(int threads) {
+    cudaDeviceProp prop;
+    int min_limit;
+    int n_used_block_regs = threads * REGS_PER_BLOCK;
+    CUDA_CHECK(cudaGetDeviceProperties(&prop, 0));
+    int shmem_block_limit = prop.sharedMemPerMultiprocessor / SHMEM_PER_BLOCK;
+    int regs_block_limit = prop.regsPerMultiprocessor / n_used_block_regs;
+    int thread_block_limit = prop.maxThreadsPerMultiProcessor / threads;
+    min_limit = shmem_block_limit < regs_block_limit ? shmem_block_limit : regs_block_limit;
+    min_limit = min_limit < thread_block_limit ? min_limit :thread_block_limit;
+    return min_limit * prop.multiProcessorCount;
+}
+
 class queue_server : public image_processing_server
 {
 private:
@@ -254,17 +272,17 @@ private:
 public:
     queue_server(int threads)
     {
-       
+        
         // TODO initialize host state
         // TODO launch GPU producer-consumer kernel with given number of threads
-        n_thread_blocks = 2; // TODO must be changed
+        n_thread_blocks = getNumOfBlocks(threads);
         // Allocate pinned host buffer for two shared_memory instances
         CUDA_CHECK(cudaMallocHost(&pinned_host_buffer, 2 * n_thread_blocks * sizeof(ring_buffer<LOG_N_SLOTS>)));
         // Use placement new operator to construct our class on the pinned buffer
         cpu_to_gpu = new (pinned_host_buffer) ring_buffer<LOG_N_SLOTS>[n_thread_blocks];
-        gpu_to_cpu = new (pinned_host_buffer + n_thread_blocks * sizeof(ring_buffer<LOG_N_SLOTS>)) ring_buffer<LOG_N_SLOTS>[n_thread_blocks];
-        
+        gpu_to_cpu = new (pinned_host_buffer + n_thread_blocks * sizeof(ring_buffer<LOG_N_SLOTS>)) ring_buffer<LOG_N_SLOTS>[n_thread_blocks]; 
         producer_consumer_kernel<<<n_thread_blocks , threads>>>(cpu_to_gpu, gpu_to_cpu);
+        std::cout << "num_of_blocks" << n_thread_blocks << std::endl;
     }
 
     ~queue_server() override
@@ -273,7 +291,10 @@ public:
         end_context.img_id = END_RUN;
         end_context.img_in = NULL;
         end_context.img_out = NULL;
-        while(cpu_to_gpu[0].push(end_context) == false);
+        while(!cpu_to_gpu[0].push(end_context));
+        CUDA_CHECK( cudaDeviceSynchronize() );
+        CUDA_CHECK( cudaFreeHost(pinned_host_buffer) );
+
     }
 
     bool enqueue(int img_id, uchar *img_in, uchar *img_out) override
