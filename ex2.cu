@@ -6,7 +6,7 @@
 #define N_REGS 32
 #define STREAM_AVAILABLE -1
 #define END_RUN -2
-#define SHMEM_PER_BLOCK 2577
+#define SHMEM_PER_BLOCK 1297
 #define REGS_PER_BLOCK 28
 
 __device__ void prefix_sum(int arr[], int arr_size) {
@@ -282,7 +282,6 @@ public:
         cpu_to_gpu = new (pinned_host_buffer) ring_buffer<LOG_N_SLOTS>[n_thread_blocks];
         gpu_to_cpu = new (pinned_host_buffer + n_thread_blocks * sizeof(ring_buffer<LOG_N_SLOTS>)) ring_buffer<LOG_N_SLOTS>[n_thread_blocks]; 
         producer_consumer_kernel<<<n_thread_blocks , threads>>>(cpu_to_gpu, gpu_to_cpu);
-        std::cout << "num_of_blocks" << n_thread_blocks << std::endl;
     }
 
     ~queue_server() override
