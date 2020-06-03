@@ -1,13 +1,11 @@
 #include <iostream>
 #include <cuda/atomic>
 #include "ex2.h"
-#define LOG_N_SLOTS 4
+#define Q_SLOTS 16
 #define N_STREAMS 64
-#define N_REGS 32
 #define STREAM_AVAILABLE -1
-#define END_RUN -2
 #define SHMEM_PER_BLOCK 1297
-#define REGS_PER_BLOCK 28
+#define N_REGS 28
 
 __device__ void prefix_sum(int arr[], int arr_size) {
     int tid = threadIdx.x;
@@ -157,7 +155,7 @@ typedef struct request{
 template <size_t size>
 class ring_buffer{
 private:
-    static const size_t N = 1 << size;
+    static const size_t N = Q_SLOTS;
     request_context _mailbox[N];
     cuda::atomic<size_t> _head;
     cuda::atomic<size_t> _tail;
@@ -217,34 +215,31 @@ __device__ void process_image(uchar *in, uchar *out) {
     for (int i = tid; i < IMG_WIDTH * IMG_HEIGHT; i += blockDim.x) {
         out[i] = map[in[i]];
     }
-    __syncthreads();
 }
 
 
-__global__ void producer_consumer_kernel(ring_buffer<LOG_N_SLOTS>* cpu_to_gpu, ring_buffer<LOG_N_SLOTS>* gpu_to_cpu , bool* end_run) {
+__global__ void producer_consumer_kernel(ring_buffer<Q_SLOTS>* cpu_to_gpu, ring_buffer<Q_SLOTS>* gpu_to_cpu , bool* end_run) {
     request_context req;
     __shared__ uchar* img_in;
     __shared__ uchar* img_out;
-    __shared__ bool con;
+    __shared__ bool bad_request;
     do{
         if(threadIdx.x == 0){
             req = cpu_to_gpu[blockIdx.x].pop();
-            con = false;
+            bad_request = false;
             img_in = req.img_in;
             img_out = req.img_out;
-            if(req.img_id == -1) con = true;
-            else if(req.img_id == END_RUN) {
-                return;
-            }                
+            if(req.img_id == -1) bad_request = true;            
         }
         __syncthreads();
-        if(con) continue;   
+        if(bad_request) continue;   
         process_image(img_in, img_out);
+        __syncthreads(); 
         if(threadIdx.x == 0){
             while(!gpu_to_cpu[blockIdx.x].push(req));
         }
-        __syncthreads();
     }while(!(*end_run));
+    
 }
 
 
@@ -252,7 +247,7 @@ __global__ void producer_consumer_kernel(ring_buffer<LOG_N_SLOTS>* cpu_to_gpu, r
 int getNumOfBlocks(int threads) {
     cudaDeviceProp prop;
     int min_limit;
-    int n_used_block_regs = threads * REGS_PER_BLOCK;
+    int n_used_block_regs = threads * N_REGS; 
     CUDA_CHECK(cudaGetDeviceProperties(&prop, 0));
     int shmem_block_limit = prop.sharedMemPerMultiprocessor / SHMEM_PER_BLOCK;
     int regs_block_limit = prop.regsPerMultiprocessor / n_used_block_regs;
@@ -265,35 +260,29 @@ int getNumOfBlocks(int threads) {
 class queue_server : public image_processing_server
 {
 private:
-    ring_buffer<LOG_N_SLOTS> *cpu_to_gpu;
-    ring_buffer<LOG_N_SLOTS> *gpu_to_cpu;
+    ring_buffer<Q_SLOTS> *cpu_to_gpu;
+    ring_buffer<Q_SLOTS> *gpu_to_cpu;
     char* pinned_host_buffer;
     int n_thread_blocks;
     bool* end_run;
+    int last_block_idx_push;
+    int last_block_idx_pop;
 public:
     queue_server(int threads)
     {
-        
-        // TODO initialize host state
-        // TODO launch GPU producer-consumer kernel with given number of threads
+        last_block_idx_push = 0;
+        last_block_idx_pop = 0;
         n_thread_blocks = getNumOfBlocks(threads);
-        // Allocate pinned host buffer for two shared_memory instances
-        CUDA_CHECK(cudaMallocHost(&pinned_host_buffer, 2 * n_thread_blocks * sizeof(ring_buffer<LOG_N_SLOTS>)));
+        CUDA_CHECK(cudaMallocHost(&pinned_host_buffer, n_thread_blocks * 2 * sizeof(ring_buffer<Q_SLOTS>)));
         CUDA_CHECK(cudaMallocHost(&end_run, sizeof(bool)));
         *end_run = false;
-        // Use placement new operator to construct our class on the pinned buffer
-        cpu_to_gpu = new (pinned_host_buffer) ring_buffer<LOG_N_SLOTS>[n_thread_blocks];
-        gpu_to_cpu = new (pinned_host_buffer + n_thread_blocks * sizeof(ring_buffer<LOG_N_SLOTS>)) ring_buffer<LOG_N_SLOTS>[n_thread_blocks]; 
+        cpu_to_gpu = new (pinned_host_buffer) ring_buffer<Q_SLOTS>[n_thread_blocks];
+        gpu_to_cpu = new (pinned_host_buffer + n_thread_blocks * sizeof(ring_buffer<Q_SLOTS>)) ring_buffer<Q_SLOTS>[n_thread_blocks]; 
         producer_consumer_kernel<<<n_thread_blocks , threads>>>(cpu_to_gpu, gpu_to_cpu, end_run);
     }
 
     ~queue_server() override
     {
-        // request_context end_context;
-        // end_context.img_id = END_RUN;
-        // end_context.img_in = NULL;
-        // end_context.img_out = NULL;
-        // while(!cpu_to_gpu[0].push(end_context));
         *end_run = true;
         CUDA_CHECK( cudaDeviceSynchronize() );
         CUDA_CHECK( cudaFreeHost(pinned_host_buffer) );
@@ -303,30 +292,34 @@ public:
 
     bool enqueue(int img_id, uchar *img_in, uchar *img_out) override
     {
-        // TODO push new task into queue if possible
         request_context req;
         req.img_id = img_id;
         req.img_in = img_in;
         req.img_out = img_out;
-        for(int i = 0 ; i < n_thread_blocks ; i++){
-            if(cpu_to_gpu[i].push(req)){
+        
+        for(int i = 0 , idx = last_block_idx_push; i < n_thread_blocks ; i++ ){ 
+            if(cpu_to_gpu[idx].push(req)){
+                last_block_idx_push = (last_block_idx_push + 1) % n_thread_blocks;
                 return true;
-            } 
+            }
+            idx = (idx + 1) % n_thread_blocks ;
         }
+        last_block_idx_push = (last_block_idx_push + 1) % n_thread_blocks;
         return false;
     }
 
     bool dequeue(int *img_id) override
     {
-        // TODO query (don't block) the producer-consumer queue for any responses.
-        *img_id = 0; // TODO return the img_id of the request that was completed.
-        for(int i = 0 ; i < n_thread_blocks ; i++){         
-            request_context req = gpu_to_cpu[i].pop();
+        for(int i = 0 , idx = last_block_idx_pop ; i < n_thread_blocks ; i++){         
+            request_context req = gpu_to_cpu[idx].pop();
             *img_id = req.img_id;
             if(req.img_id >= 0) {
+                last_block_idx_pop = (last_block_idx_pop + 1) % n_thread_blocks;
                 return true; 
             }
+            idx = (idx + 1) % n_thread_blocks ;
         }
+        last_block_idx_pop = (last_block_idx_pop + 1) % n_thread_blocks;
         return false;
         
     }
