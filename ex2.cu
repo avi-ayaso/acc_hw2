@@ -221,7 +221,7 @@ __device__ void process_image(uchar *in, uchar *out) {
 }
 
 
-__global__ void producer_consumer_kernel(ring_buffer<LOG_N_SLOTS>* cpu_to_gpu, ring_buffer<LOG_N_SLOTS>* gpu_to_cpu) {
+__global__ void producer_consumer_kernel(ring_buffer<LOG_N_SLOTS>* cpu_to_gpu, ring_buffer<LOG_N_SLOTS>* gpu_to_cpu , bool* end_run) {
     request_context req;
     __shared__ uchar* img_in;
     __shared__ uchar* img_out;
@@ -244,7 +244,7 @@ __global__ void producer_consumer_kernel(ring_buffer<LOG_N_SLOTS>* cpu_to_gpu, r
             while(!gpu_to_cpu[blockIdx.x].push(req));
         }
         __syncthreads();
-    }while(1);
+    }while(!(*end_run));
 }
 
 
@@ -269,6 +269,7 @@ private:
     ring_buffer<LOG_N_SLOTS> *gpu_to_cpu;
     char* pinned_host_buffer;
     int n_thread_blocks;
+    bool* end_run;
 public:
     queue_server(int threads)
     {
@@ -278,21 +279,25 @@ public:
         n_thread_blocks = getNumOfBlocks(threads);
         // Allocate pinned host buffer for two shared_memory instances
         CUDA_CHECK(cudaMallocHost(&pinned_host_buffer, 2 * n_thread_blocks * sizeof(ring_buffer<LOG_N_SLOTS>)));
+        CUDA_CHECK(cudaMallocHost(&end_run, sizeof(bool)));
+        *end_run = false;
         // Use placement new operator to construct our class on the pinned buffer
         cpu_to_gpu = new (pinned_host_buffer) ring_buffer<LOG_N_SLOTS>[n_thread_blocks];
         gpu_to_cpu = new (pinned_host_buffer + n_thread_blocks * sizeof(ring_buffer<LOG_N_SLOTS>)) ring_buffer<LOG_N_SLOTS>[n_thread_blocks]; 
-        producer_consumer_kernel<<<n_thread_blocks , threads>>>(cpu_to_gpu, gpu_to_cpu);
+        producer_consumer_kernel<<<n_thread_blocks , threads>>>(cpu_to_gpu, gpu_to_cpu, end_run);
     }
 
     ~queue_server() override
     {
-        request_context end_context;
-        end_context.img_id = END_RUN;
-        end_context.img_in = NULL;
-        end_context.img_out = NULL;
-        while(!cpu_to_gpu[0].push(end_context));
+        // request_context end_context;
+        // end_context.img_id = END_RUN;
+        // end_context.img_in = NULL;
+        // end_context.img_out = NULL;
+        // while(!cpu_to_gpu[0].push(end_context));
+        *end_run = true;
         CUDA_CHECK( cudaDeviceSynchronize() );
         CUDA_CHECK( cudaFreeHost(pinned_host_buffer) );
+        CUDA_CHECK( cudaFreeHost(end_run) );
 
     }
 
