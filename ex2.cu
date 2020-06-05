@@ -1,11 +1,12 @@
 #include <iostream>
 #include <cuda/atomic>
 #include "ex2.h"
-#define Q_SLOTS 16
+
 #define N_STREAMS 64
 #define STREAM_AVAILABLE -1
+#define Q_SLOTS 16
+#define N_REGS_PER_THREAD 32
 #define SHMEM_PER_BLOCK 1297
-#define N_REGS_PER_THREAD 28
 
 __device__ void prefix_sum(int arr[], int arr_size) {
     int tid = threadIdx.x;
@@ -152,7 +153,6 @@ typedef struct request{
 
 
 
-template <size_t size>
 class ring_buffer{
 private:
     static const size_t N = Q_SLOTS;
@@ -218,7 +218,7 @@ __device__ void process_image(uchar *in, uchar *out) {
 }
 
 
-__global__ void producer_consumer_kernel(ring_buffer<Q_SLOTS>* cpu_to_gpu, ring_buffer<Q_SLOTS>* gpu_to_cpu , bool* end_run) {
+__global__ void producer_consumer_kernel(ring_buffer* cpu_to_gpu, ring_buffer* gpu_to_cpu , bool* end_run) {
     request_context req;
     __shared__ uchar* img_in;
     __shared__ uchar* img_out;
@@ -260,8 +260,8 @@ int getNumOfBlocks(int threads) {
 class queue_server : public image_processing_server
 {
 private:
-    ring_buffer<Q_SLOTS> *cpu_to_gpu;
-    ring_buffer<Q_SLOTS> *gpu_to_cpu;
+    ring_buffer *cpu_to_gpu;
+    ring_buffer *gpu_to_cpu;
     char* pinned_host_buffer;
     int n_thread_blocks;
     bool* end_run;
@@ -273,11 +273,12 @@ public:
         last_block_idx_push = 0;
         last_block_idx_pop = 0;
         n_thread_blocks = getNumOfBlocks(threads);
-        CUDA_CHECK(cudaMallocHost(&pinned_host_buffer, n_thread_blocks * 2 * sizeof(ring_buffer<Q_SLOTS>)));
+//		printf("n_thread_blocks: %d\n", n_thread_blocks);
+        CUDA_CHECK(cudaMallocHost(&pinned_host_buffer, n_thread_blocks * 2 * sizeof(ring_buffer)));
         CUDA_CHECK(cudaMallocHost(&end_run, sizeof(bool)));
         *end_run = false;
-        cpu_to_gpu = new (pinned_host_buffer) ring_buffer<Q_SLOTS>[n_thread_blocks];
-        gpu_to_cpu = new (pinned_host_buffer + n_thread_blocks * sizeof(ring_buffer<Q_SLOTS>)) ring_buffer<Q_SLOTS>[n_thread_blocks]; 
+        cpu_to_gpu = new (pinned_host_buffer) ring_buffer[n_thread_blocks];
+        gpu_to_cpu = new (pinned_host_buffer + n_thread_blocks * sizeof(ring_buffer)) ring_buffer[n_thread_blocks]; 
         producer_consumer_kernel<<<n_thread_blocks , threads>>>(cpu_to_gpu, gpu_to_cpu, end_run);
     }
 
