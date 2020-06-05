@@ -5,7 +5,7 @@
 #define N_STREAMS 64
 #define STREAM_AVAILABLE -1
 #define SHMEM_PER_BLOCK 1297
-#define N_REGS 28
+#define N_REGS_PER_THREAD 28
 
 __device__ void prefix_sum(int arr[], int arr_size) {
     int tid = threadIdx.x;
@@ -247,7 +247,7 @@ __global__ void producer_consumer_kernel(ring_buffer<Q_SLOTS>* cpu_to_gpu, ring_
 int getNumOfBlocks(int threads) {
     cudaDeviceProp prop;
     int min_limit;
-    int n_used_block_regs = threads * N_REGS; 
+    int n_used_block_regs = threads * N_REGS_PER_THREAD; 
     CUDA_CHECK(cudaGetDeviceProperties(&prop, 0));
     int shmem_block_limit = prop.sharedMemPerMultiprocessor / SHMEM_PER_BLOCK;
     int regs_block_limit = prop.regsPerMultiprocessor / n_used_block_regs;

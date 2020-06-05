@@ -5,13 +5,20 @@
 \save_transient_properties true
 \origin unavailable
 \textclass article
+\begin_preamble
+\usepackage{simpsons}
+\fancyhf{}               % Clear fancy header/footer
+\fancyfoot[C]{\thepage} 
+\fancyhead[L]{Electrical Engineering Faculty\\Accelerators and Accelerated Systems}
+\fancyhead[R]{Technion Institue of Technology\\Spring Semester 2020}
+\end_preamble
 \use_default_options true
 \maintain_unincluded_children false
-\language english
+\language american
 \language_package default
 \inputencoding auto
 \fontencoding global
-\font_roman "default" "Sans Serif"
+\font_roman "default" "default"
 \font_sans "default" "default"
 \font_typewriter "default" "default"
 \font_math "auto" "auto"
@@ -67,7 +74,8 @@
 \dynamic_quotes 0
 \papercolumns 1
 \papersides 1
-\paperpagestyle default
+\paperpagestyle fancy
+\listings_params "keywordstyle={\color{blue}},commentstyle={\color{magenta}\itshape},emphstyle={\color{red}},basicstyle={\ttfamily},stringstyle={\color{green}},identifierstyle={\color{cyan}},showstringspaces=false"
 \tracking_changes false
 \output_changes false
 \html_math_output 0
@@ -77,13 +85,556 @@
 
 \begin_body
 
-\begin_layout Part*
-Part 2
-\end_layout
-
-\begin_layout Section*
+\begin_layout Title
 
 \series bold
+046278
+\begin_inset Newline newline
+\end_inset
+
+Accelerators and Accelerated Systems
+\begin_inset Newline newline
+\end_inset
+
+Assigment 2
+\end_layout
+
+\begin_layout Author
+Avraham Ayaso - 305036352, Yonatan Nakonechny - 200752061
+\end_layout
+
+\begin_layout Standard
+\align center
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+Goofy{
+\backslash
+Maggie(.5,1.2)(.35,1.2)}
+\backslash
+Goofy{
+\backslash
+Bart(.5,1.2)(.35,1.2)}
+\backslash
+Goofy{
+\backslash
+Marge(.5,1.2)(.35,1.2)}
+\backslash
+Goofy{
+\backslash
+Homer(.5,1.2)(.35,1.2)}
+\backslash
+Goofy{
+\backslash
+Lisa(.5,1.2)(.35,1.2)}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+pagebreak
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection*
+1 CUDA Streams
+\end_layout
+
+\begin_layout Subsubsection*
+1.2 Run the program in streams mode with load=0 and report the throughput
+ in the report.
+ We'll refer to the throughput you get here as maxLoad.
+\end_layout
+
+\begin_layout Standard
+\align center
+\begin_inset Float figure
+placement H
+wide false
+sideways false
+status collapsed
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename pasted1.png
+	lyxscale 80
+	scale 60
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\begin_inset Formula 
+\[
+maxLoad=186490.5\left[\frac{req}{sec}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection*
+1.3 Vary the load from load=maxLoad/10 to load=maxLoad*2, in 10 equal steps.
+ In each run write down the load, latency and throughput in a table in the
+ report.
+\end_layout
+
+\begin_layout Standard
+\align center
+\begin_inset Float table
+placement H
+wide false
+sideways false
+status collapsed
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Tabular
+<lyxtabular version="3" rows="11" columns="3">
+<features tabularvalignment="middle">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+load (req/sec)
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+median latency (msec)
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+throughput (req/sec)
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+18649.05
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.0819
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+19272.8
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+55947.15
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.0820
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+55580.7
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+93245.25
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.0865
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+93921.6
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+130543.35
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.1031
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+128357.0
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+167841.45
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0.1794
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+166959.2
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+205139.55
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3.3862
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+183348.8
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+242437.65
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+7.4288
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+185343.4
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+279735.75
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+9.9496
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+187086.8
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+317033.85
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+11.7804
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+187728.8
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+372981
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+14.1029
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+188194.3
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection*
+1.4 From the samples you collected, draw a throughput-latency graph: X-axis
+ is the throughput, and Y-axis is the median latency.
+ Make sure to annotate the axes with clear names, units and values.
+ Use linear scale for the X-axis.
+ Make sure that the sample points are marked in the graph.
+ Add the graph to the report and explain it (what can we learn from it?)
+\end_layout
+
+\begin_layout Standard
+\align center
+\begin_inset Float figure
+placement H
+wide false
+sideways false
+status collapsed
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename pasted2.png
+	lyxscale 30
+	scale 30
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+
+\series bold
+\bar under
+Conclusions from the graph:
+\end_layout
+
+\begin_layout Itemize
+The throughput 
+\series bold
+increases
+\series default
+ as we increase the load 
+\series bold
+until
+\series default
+ we reach a peak around maxLoad.
+ Any increase in the load beyond maxLoad won't affect the throughput.
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+As we found out when we ran the program without limits, maxLoad is the maximum
+ throughput possible, so it makes sense that we can utilize the resources
+ untill we reach that max point.
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+The latency increase rate 
+\series bold
+increases
+\series default
+ as we increase the load.
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+This also makes sense because as we get close to maxLoad we reach a point
+ in which the input req/sec rate is getting bigger than the output req/sec,
+ therefore we are having more jobs that cannot be processed and have to
+ wait for an available stream.
+\end_layout
+
+\end_deeper
+\begin_layout Subsection*
+2 Producer Consumer Queues
+\end_layout
+
+\begin_layout Subsubsection*
 2.1 
 \begin_inset Quotes eld
 \end_inset
@@ -98,14 +649,15 @@ In your code compute how many threadblocks can concurrently run in the GPU...
 
 \begin_layout Standard
 For determining the amount of threadblocks that can run concurrently on
- the GPU we will have to look at three limits, take the minimum of them
- and multiply by the amount of SM's.
+ the GPU we will look at the three following limits on the number of concurrent
+ threadblocks on a specific SM, take the minimum and multiply by the total
+ amount of SMs.
 \end_layout
 
 \begin_layout Standard
 \begin_inset Formula 
 \[
-L_{1}=\frac{TotalSharedMem_{SM}}{UsedSharedMem}
+L_{1}=\frac{TotalSharedMemPerSM}{UsedSharedMemPerBlock}
 \]
 
 \end_inset
@@ -116,7 +668,7 @@ L_{1}=\frac{TotalSharedMem_{SM}}{UsedSharedMem}
 \begin_layout Standard
 \begin_inset Formula 
 \[
-L_{2}=\frac{TotalRegs_{SM}}{UsedRegs}
+L_{2}=\frac{TotalRegsPerSM}{UsedThreadsPerBlock\cdot RegistersPerThread}
 \]
 
 \end_inset
@@ -127,7 +679,7 @@ L_{2}=\frac{TotalRegs_{SM}}{UsedRegs}
 \begin_layout Standard
 \begin_inset Formula 
 \[
-L_{3}=\frac{MaxThreads_{SM}}{WantedThreads}
+L_{3}=\frac{MaxThreadsPerSM}{UsedThreadsPerBlock}
 \]
 
 \end_inset
@@ -138,7 +690,7 @@ L_{3}=\frac{MaxThreads_{SM}}{WantedThreads}
 \begin_layout Standard
 \begin_inset Formula 
 \[
-N_{ThreadBlocks}=N_{SM}*min(L_{1},L_{2},L_{3})
+N_{ThreadBlocks}=N_{SM}\cdot min(L_{1},L_{2},L_{3})
 \]
 
 \end_inset
@@ -146,9 +698,7 @@ N_{ThreadBlocks}=N_{SM}*min(L_{1},L_{2},L_{3})
 
 \end_layout
 
-\begin_layout Section*
-
-\series bold
+\begin_layout Subsubsection*
 2.4.1.
  Run the program in queue mode with #threads = 1024 and load = 0 and report
  the throughput in the report.
@@ -166,9 +716,7 @@ maxLoad_{1024}=1184046.8\left[\frac{req}{sec}\right]
 
 \end_layout
 
-\begin_layout Section*
-
-\series bold
+\begin_layout Subsubsection*
 2.4.2.
  Vary the load from load = maxLoad / 10 to load = maxLoad * 2, in ~10 equal
  steps.
@@ -177,11 +725,12 @@ maxLoad_{1024}=1184046.8\left[\frac{req}{sec}\right]
 \end_layout
 
 \begin_layout Standard
+\align center
 \begin_inset Float table
 placement H
 wide false
 sideways false
-status open
+status collapsed
 
 \begin_layout Plain Layout
 \align center
@@ -557,9 +1106,7 @@ Median Latency
 
 \end_layout
 
-\begin_layout Section*
-
-\series bold
+\begin_layout Subsubsection*
 2.5.1-2.5.2 Repeat 2.4.1-2.4.2 with #threads=512.
 \end_layout
 
@@ -575,11 +1122,12 @@ maxLoad_{512}=1202951.1\left[\frac{req}{sec}\right]
 \end_layout
 
 \begin_layout Standard
+\align center
 \begin_inset Float table
 placement H
 wide false
 sideways false
-status open
+status collapsed
 
 \begin_layout Plain Layout
 \align center
@@ -955,9 +1503,7 @@ Median Latency
 
 \end_layout
 
-\begin_layout Section*
-
-\series bold
+\begin_layout Subsubsection*
 2.6.1-2.6.2 Repeat 2.4.1-2.4.2 with #threads=256.
 \end_layout
 
@@ -973,15 +1519,12 @@ maxLoad_{256}=1283840.6\left[\frac{req}{sec}\right]
 \end_layout
 
 \begin_layout Standard
+\align center
 \begin_inset Float table
 placement H
 wide false
 sideways false
-status open
-
-\begin_layout Plain Layout
-
-\end_layout
+status collapsed
 
 \begin_layout Plain Layout
 \align center
@@ -1357,9 +1900,7 @@ Median Latency
 
 \end_layout
 
-\begin_layout Section*
-
-\series bold
+\begin_layout Subsubsection*
 2.7 From the samples you collected, create a latency-throughput graph which
  compares all 4 previous experiments (streams, queues with #threads=1024,
  queues with #threads=512, and queues with #threads=256).
@@ -1369,8 +1910,16 @@ Median Latency
 
 \begin_layout Standard
 \align center
+\begin_inset Float figure
+placement H
+wide false
+sideways false
+status collapsed
+
+\begin_layout Plain Layout
+\align center
 \begin_inset Graphics
-	filename ../../../../../Pictures/pasted2.png
+	filename ../../../../Documents/GitHub/acc_hw2/pasted3.png
 	lyxscale 40
 	scale 40
 
@@ -1379,31 +1928,68 @@ Median Latency
 
 \end_layout
 
-\begin_layout Section*
+\end_inset
 
-\series bold
+
+\end_layout
+
+\begin_layout Subsubsection*
 2.8 In the report, explain what we can learn from the differences between
  the throughput- latency graphs with different #threads.
- 
 \end_layout
 
 \begin_layout Itemize
-The GPU-CPU shared memory is a much quicker method than cpying memory as
- we did in the stream server.
-\end_layout
-
-\begin_layout Itemize
-The amount of runing thread blocks is the important factor in terms of performan
-ce.
-\end_layout
-
-\begin_layout Itemize
-
-\end_layout
-
-\begin_layout Section*
-
+The GPU-CPU shared memory is a much 
 \series bold
+quicker
+\series default
+ method than copying memory as we did in the stream server.
+\end_layout
+
+\begin_layout Itemize
+The amount of concurrent threadblocks is the important factor in terms of
+ performance.
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+The 
+\series bold
+decrease
+\series default
+ in the 
+\series bold
+number of threads per block
+\series default
+ allows us to use 
+\series bold
+more concurrent threadblocks
+\series default
+, which results in an 
+\series bold
+increase in the throughput
+\series default
+.
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+Again, as we saw in the streams method, the 
+\series bold
+increase
+\series default
+ in load causes an 
+\series bold
+increase
+\series default
+ in throughput only 
+\series bold
+untill
+\series default
+ we reach the maxLoad.
+\end_layout
+
+\begin_layout Subsubsection*
 2.9.
  A wise man suggested to move the CPU-to-GPU queue to the memory of the
  GPU (assume it is still accessible by CPU), and to keep the GPU-to-CPU
@@ -1415,16 +2001,23 @@ ce.
 \end_layout
 
 \begin_layout Standard
-In this case the server (GPU thread block) wont have to fetch a remote request
- once he's ready to handle it.
- Instead, if there is a request waiting it will be waiting for him on his
- own memory which will save the fetching.
- The same is true for the CPU which on his end pops GPU's responses.
+Because write() transactions are posted (doesn't wait for completion), and
+ read() transactions are non-posted, we would get better performance if
+ we could use write() transactions between the CPU-GPU instead of read()
+ transactions.
 \end_layout
 
-\begin_layout Section*
+\begin_layout Standard
+\noindent
+Therefore, because the CPU-to-GPU queue is on the memory of the GPU, the
+ CPU uses write() in order to push new requests to the GPU inside the CPU-to-GPU
+ queue and the GPU just reads from his own memory.
+ And the same goes for the GPU-to-CPU queue, the GPU uses write() in order
+ to push finished jobs to the CPU inside the GPU-to-CPU queue and the CPU
+ just reads from his own memory.
+\end_layout
 
-\series bold
+\begin_layout Subsubsection*
 2.10.
  In order to place the CPU-to-GPU queue in the GPU memory, we will need
  to make it accessible by CPU.
@@ -1433,14 +2026,11 @@ In this case the server (GPU thread block) wont have to fetch a remote request
 \end_layout
 
 \begin_layout Standard
-\begin_inset Formula 
-\[
-\left[sec\right]
-\]
-
-\end_inset
-
-
+The CPU needs to map the addresses of the CPU-to-GPU queues (which are in
+ the GPU memory) to his virtual memory address space (MMIO).
+ In order for that to be possible, the GPU needs to implement the interface
+ between the PCIe and itself (via the GPU's driver), and expose his memory
+ for write transactions.
 \end_layout
 
 \end_body
